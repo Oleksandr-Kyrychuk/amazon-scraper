@@ -226,16 +226,16 @@ class AmazonScraper:
         options.add_argument("--incognito")
         options.add_argument("--disable-gpu")
         options.add_argument("--disable-background-networking")
-
+        options.binary_location = "/usr/bin/chromium"
         tmpdirname = tempfile.mkdtemp()
         logging.debug(f"Створено тимчасову директорію: {tmpdirname}")
         options.add_argument(f"--user-data-dir={tmpdirname}")
 
         log_path = os.path.join(tmpdirname, "chrome_debug.log")
         logging.debug(f"Шлях до логу ChromeDriver: {log_path}")
-        service = Service(ChromeDriverManager().install(), log_path=log_path)
+        service = Service("/usr/bin/chromedriver")  # Use system-installed chromedriver
+        driver = None
 
-        logging.debug(f"Ініціалізація WebDriver з User-Agent: {user_agent}")
         try:
             driver = webdriver.Chrome(service=service, options=options)
             driver.delete_all_cookies()
@@ -260,23 +260,23 @@ class AmazonScraper:
             logging.error(f"Помилка створення WebDriver: {e}")
             raise
         finally:
-            try:
-                driver.quit()
-                logging.info("WebDriver закрито")
-            except Exception as e:
-                logging.error(f"Помилка закриття WebDriver: {e}")
-            finally:
+            if driver is not None:
                 try:
-                    if os.path.exists(tmpdirname):
-                        for root, dirs, files in os.walk(tmpdirname, topdown=False):
-                            for name in files:
-                                os.remove(os.path.join(root, name))
-                            for name in dirs:
-                                os.rmdir(os.path.join(root, name))
-                        os.rmdir(tmpdirname)
-                        logging.debug(f"Тимчасова директорія видалена: {tmpdirname}")
+                    driver.quit()
+                    logging.info("WebDriver закрито")
                 except Exception as e:
-                    logging.error(f"Помилка видалення тимчасової директорії {tmpdirname}: {e}")
+                    logging.error(f"Помилка закриття WebDriver: {e}")
+            try:
+                if os.path.exists(tmpdirname):
+                    for root, dirs, files in os.walk(tmpdirname, topdown=False):
+                        for name in files:
+                            os.remove(os.path.join(root, name))
+                        for name in dirs:
+                            os.rmdir(os.path.join(root, name))
+                    os.rmdir(tmpdirname)
+                    logging.debug(f"Тимчасова директорія видалена: {tmpdirname}")
+            except Exception as e:
+                logging.error(f"Помилка видалення тимчасової директорії {tmpdirname}: {e}")
 
     def human_scroll(self, driver):
         if self.cancelled:
