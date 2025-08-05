@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Аналітика</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        a { color: #007bff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        button { padding: 10px; background-color: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        input, select { padding: 8px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Аналітика</h1>
+
+    {% if error %}
+        <p style="color: red;">{{ error }}</p>
+    {% endif %}
+
+    <div>
+        <h2>Середня ціна (рейтинг ≥ 4.0)</h2>
+        {% if analytics.avg_price is defined and analytics.avg_price %}
+            <p>${{ analytics.avg_price | round(2) }}</p>
+        {% else %}
+            <p>Немає даних</p>
+        {% endif %}
+
+        <h2>Максимальна знижка</h2>
+        {% if analytics.max_discount is defined and analytics.max_discount %}
+            <p>${{ analytics.max_discount | round(2) }}</p>
+        {% else %}
+            <p>Немає даних про знижки</p>
+        {% endif %}
+
+        {% if analytics.max_discount_product %}
+            <p>Продукт: {{ analytics.max_discount_product.title }}</p>
+        {% else %}
+            <p>Немає даних про знижки</p>
+        {% endif %}
+
+        <h2>Топ-3 за рейтингом</h2>
+        <ul>
+            {% for product in analytics.top_by_rating %}
+                <li>{{ product.title }} ({{ product.rating | round(1) }} зірок)</li>
+            {% else %}
+                <li>Немає даних</li>
+            {% endfor %}
+        </ul>
+
+        <h2>Топ-3 за найнижчою ціною</h2>
+        <ul>
+            {% for product in analytics.top_by_price %}
+                <li>{{ product.title }} (${{ product.price | round(2) }})</li>
+            {% else %}
+                <li>Немає даних</li>
+            {% endfor %}
+        </ul>
+
+        <p><a href="/">Повернутися до продуктів</a></p>
+
+        <h2>Розподіл цін</h2>
+{% if analytics.price_distribution.labels and analytics.price_distribution.values %}
+    <div class="chart-container" style="height: 400px; width: 100%;">
+        <canvas id="priceChart"></canvas>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const ctx = document.getElementById('priceChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: {{ analytics.price_distribution.labels | tojson }},
+                datasets: [{
+                    label: 'Кількість продуктів',
+                    data: {{ analytics.price_distribution.values | tojson }},
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)', // Синій для світлої/темної теми
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Розподіл цін продуктів',
+                        font: {
+                            size: 18
+                        }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        enabled: true,
+                        callbacks: {
+                            label: function(context) {
+                                return `Кількість: ${context.parsed.y} продуктів`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Ціновий діапазон ($)',
+                            font: {
+                                size: 14
+                            }
+                        },
+                        grid: {
+                            display: false // Вимкнути сітку на осі X
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Кількість продуктів',
+                            font: {
+                                size: 14
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(200, 200, 200, 0.3)' // Легка сітка для осі Y
+                        },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
+{% else %}
+    <p>Немає даних для відображення гістограми</p>
+{% endif %}
+    </div>
+</body>
+</html>

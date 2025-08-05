@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amazon Scraper</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f9f9f9;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        input, select {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .alert {
+            padding: 10px;
+            background-color: #e0f7fa;
+            border: 1px solid #b3e5fc;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .pagination {
+            margin: 20px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Amazon Scraper</h1>
+
+        {% if message %}
+            <div class="alert">{{ message }}</div>
+        {% endif %}
+
+        <section>
+            <h2>Запуск скрапінгу</h2>
+            <form method="post" action="/scrape" class="form-group">
+                <label>Пошуковий запит: <input type="text" name="query" value="laptop" required></label>
+                <label>Кількість сторінок: <input type="number" name="pages" value="1" min="1" required></label>
+                <label><input type="checkbox" name="headless" checked> Запуск у headless-режимі</label>
+                <button type="submit">Почати скрапінг</button>
+            </form>
+        </section>
+
+        <section>
+            <h2>Задачі скрапінгу</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Запит</th>
+                        <th>Сторінки</th>
+                        <th>Статус</th>
+                        <th>Поточна сторінка</th>
+                        <th>Продуктів зібрано</th>
+                        <th>Повідомлення</th>
+                        <th>Дії</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task_id, task in scrape_tasks.items() %}
+                        <tr>
+                            <td>{{ task_id }}</td>
+                            <td>{{ task.query }}</td>
+                            <td>{{ task.pages }}</td>
+                            <td>{{ task.status }}</td>
+                            <td>{{ task.current_page }}</td>
+                            <td>{{ task.total_products }}</td>
+                            <td>{{ task.message }}</td>
+                            <td>
+                                {% if task.status == "running" %}
+                                    <form method="post" action="/scrape/cancel/{{ task_id }}">
+                                        <button type="submit">Скасувати</button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+
+        <section>
+            <h2>Фільтри</h2>
+            <form method="get" action="/" class="form-group">
+                <label>Мін. рейтинг: <input type="number" step="0.1" min="0" max="5" name="min_rating" value="{{ min_rating or '' }}"></label>
+                <label>Макс. ціна: <input type="number" step="0.01" min="0" name="max_price" value="{{ max_price or '' }}"></label>
+                <label>Мін. відгуків: <input type="number" min="0" name="min_reviews" value="{{ min_reviews or '' }}"></label>
+                <button type="submit">Застосувати фільтри</button>
+            </form>
+        </section>
+
+        <section>
+            <h2>Результати</h2>
+            <div class="pagination">
+                {% if total_pages > 1 %}
+                    <p>
+                        Сторінка {{ current_page }} з {{ total_pages }}
+                        {% if current_page > 1 %}
+                            <a href="?page={{ current_page - 1 }}{% if min_rating is not none %}&min_rating={{ min_rating }}{% endif %}{% if max_price is not none %}&max_price={{ max_price }}{% endif %}{% if min_reviews is not none %}&min_reviews={{ min_reviews }}{% endif %}">Попередня</a>
+                        {% endif %}
+                        {% if current_page < total_pages %}
+                            <a href="?page={{ current_page + 1 }}{% if min_rating is not none %}&min_rating={{ min_rating }}{% endif %}{% if max_price is not none %}&max_price={{ max_price }}{% endif %}{% if min_reviews is not none %}&min_reviews={{ min_reviews }}{% endif %}">Наступна</a>
+                        {% endif %}
+                    </p>
+                {% endif %}
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ASIN</th>
+                        <th>Назва</th>
+                        <th>Ціна ($)</th>
+                        <th>Ориг. ціна ($)</th>
+                        <th>Рейтинг</th>
+                        <th>Відгуки</th>
+                        <th>Доставка</th>
+                        <th>Продавець</th>
+                        <th>URL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                        <tr>
+                            <td>{{ product.asin }}</td>
+                            <td>{{ product.title }}</td>
+                            <td>{{ product.price }}</td>
+                            <td>{{ product.original_price }}</td>
+                            <td>{{ product.rating }}</td>
+                            <td>{{ product.reviews }}</td>
+                            <td>{{ product.delivery }}</td>
+                            <td>{{ product.seller }}</td>
+                            <td><a href="{{ product.url }}" target="_blank">Посилання</a></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+
+        <section>
+            <a href="/export">Експортувати в CSV</a>
+            <form method="post" action="/clear_db" style="display: inline;">
+                <button type="submit">Очистити базу даних</button>
+            </form>
+            <a href="/analytics">Переглянути аналітику</a>
+        </section>
+    </div>
+</body>
+</html>
